@@ -30,41 +30,29 @@
 
 ---
 
-## Overview
+## Method
 
-Bokeh rendering and depth estimation share a fundamental optical connection, yet existing methods fail to fully exploit this reciprocity:
-
-- **Conventional bokeh pipelines** rely heavily on noisy depth maps, which translate any local depth error into incorrect blur radii, halos, and broken occlusion edges.
-- **Monocular depth models** follow two flawed paradigms: generative diffusion frameworks lack consistent metric scale, while feed-forward metric models fail in textureless or distant regions — exactly where defocus blur could supply geometric information.
-
-We propose **BokehDepth**, a two-stage framework that treats synthetic defocus as a *supervision-free geometric signal*. A physically grounded generative model produces calibrated bokeh stacks from a single sharp input (no depth map required), and a lightweight defocus-aware aggregation module integrates these stacks into a depth estimator's encoder while leaving the decoder unchanged.
+Bokeh and monocular depth are two sides of the same lens geometry, but existing methods use this link in only one direction. Conventional bokeh pipelines depend on a predicted depth map, so any depth error turns into a wrong blur radius or a broken occlusion edge. Monocular metric models, in turn, struggle on textureless and distant regions, which is exactly where defocus carries the strongest geometric signal. **BokehDepth** closes this loop. It treats synthetic defocus as a supervision-free geometric cue and feeds it back into the depth estimator through two stages.
 
 <p align="center">
   <img src="assets/intro_wide.png" width="100%">
 </p>
 
 <p align="center">
-  <em>(a) Standard monocular depth estimation predicts a depth map from a single RGB image. (b) Classical bokeh rendering takes an image and its depth map as input. (c) BokehDepth first generates a calibrated bokeh stack from the input image, then uses the induced defocus cues to enhance depth estimation.</em>
+  <em>(a) Standard monocular depth estimation maps a single RGB image to a depth map. (b) Classical bokeh rendering needs both the image and a depth map. (c) BokehDepth instead generates a calibrated bokeh stack from the image and uses the resulting defocus cues to sharpen depth estimation.</em>
 </p>
-
-## Method
 
 <p align="center">
   <img src="assets/method.png" width="100%">
 </p>
 
-**(a) Stage-1 — Physically Grounded Bokeh Generation.**
-We build on **FLUX.1-Kontext**, a rectified-flow MMDiT backbone, and augment it with a *bokeh cross-attention adapter*. Diverse optical parameters (focal length, aperture, focus distance) are mapped to a single calibrated scalar `K` derived from the thin-lens circle-of-confusion model, which approximates the linear relation between blur radius and disparity offset (`r ≈ K · Δdisp`). Conditioned on `K`, Stage-1 generates a multi-strength bokeh stack from a single sharp image **without any depth map**. Training unifies three data sources — in-the-wild defocused photos with EXIF metadata, BokehMe-rendered augmentations, and paired datasets (DPDD, BLB) — into the shared `K` domain.
+**Stage-1 — Physically Grounded Bokeh Generation.**
+We build on **FLUX.1-Kontext**, a rectified-flow MMDiT backbone, and add a lightweight bokeh cross-attention adapter. Heterogeneous optical settings (focal length, aperture, focus distance) collapse into a single calibrated scalar `K` from the thin-lens circle-of-confusion model, which captures the near-linear relation between blur radius and disparity offset (`r ≈ K · Δdisp`). Conditioned on `K`, Stage-1 turns one sharp image into a multi-strength bokeh stack with no depth map at any point. A unified data pipeline aligns real defocused photos, synthetic renderings, and paired datasets onto this shared `K` axis.
 
-**(b) Stage-2 — Bokeh Stack Fusion for Depth.**
-A **Divided Space Focus Attention (DSFA)** module is inserted into a ViT depth encoder:
+**Stage-2 — Bokeh Stack Fusion for Depth.**
+A **Divided Space Focus Attention (DSFA)** module is inserted into the ViT depth encoder. It first runs spatial attention inside each frame, conditioned on that frame's strength `K_f`, and then runs focus attention across frames at matching spatial locations, modulated by FiLM. Each location can therefore read how its blur grows with `K`, which is the physical depth-from-defocus cue. Only the reference-frame tokens are passed on, so the original DPT decoder and metric head stay untouched. DSFA is a plug-and-play addition that drops into strong depth foundations such as Depth Anything V2 and UniDepthV2.
 
-- **Step-1 (Spatial attention):** attends within each frame, conditioned on the bokeh strength `K_f`.
-- **Step-2 (Focus attention):** attends across frames at aligned spatial locations using FiLM conditioning, letting each location directly compare how blur changes with `K` — the physical depth-from-defocus cue.
-
-Only the refined reference-frame tokens are kept, so the unchanged DPT decoder and metric head run exactly as in a standard single-frame estimator. This makes DSFA **plug-and-play** for strong depth foundations such as Depth Anything V2 and UniDepthV2.
-
-> We further prove a *Depth-from-Bokeh Sweep* proposition: under calibrated bokeh control, regressing the bokeh radius on `K` across the stack yields an unbiased, consistent estimate of each pixel's inverse-depth offset — directly recovering metric depth.
+> A *Depth-from-Bokeh Sweep* proposition shows this cue is principled: under calibrated control, regressing the bokeh radius on `K` across the stack gives an unbiased and consistent estimate of each pixel's inverse-depth offset, which recovers metric depth.
 
 
 ## TODO
