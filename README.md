@@ -1,4 +1,4 @@
-# BokehDepth: Boosting Monocular Metric Depth Estimation via Bokeh Rendering
+# Boosting Monocular Metric Depth Estimation via Bokeh Rendering
 
 <p align="center">
   <b>ICML 2026</b>
