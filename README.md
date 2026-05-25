@@ -7,14 +7,14 @@
 <p align="center">
   <a href="https://fogradio.github.io/BokehDepth_Project/"><img src="https://img.shields.io/badge/Project-Page-blue" alt="Project Page"></a>
   <a href="#citation"><img src="https://img.shields.io/badge/Paper-ICML%202026-red" alt="Paper"></a>
-  <img src="https://img.shields.io/badge/Code-Coming%20Soon-lightgrey" alt="Code Coming Soon">
+  <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Model-Coming%20Soon-yellow" alt="HF Model Coming Soon">
 </p>
 
 <p align="center">
-  Hangwei Zhang<sup>1,2</sup>&nbsp;&nbsp;
-  Armando Teles Fortes<sup>1</sup>&nbsp;&nbsp;
-  Tianyi Wei<sup>1</sup>&nbsp;&nbsp;
-  Xingang Pan<sup>1</sup>
+  <a href="https://fogradio.github.io">Hangwei Zhang</a><sup>1,2</sup>&nbsp;&nbsp;
+  <a href="https://atfortes.github.io/">Armando Teles Fortes</a><sup>1</sup>&nbsp;&nbsp;
+  <a href="https://wtybest.github.io/">Tianyi Wei</a><sup>1</sup>&nbsp;&nbsp;
+  <a href="https://xingangpan.github.io">Xingang Pan</a><sup>1</sup>
 </p>
 
 <p align="center">
@@ -66,16 +66,12 @@ Only the refined reference-frame tokens are kept, so the unchanged DPT decoder a
 
 > We further prove a *Depth-from-Bokeh Sweep* proposition: under calibrated bokeh control, regressing the bokeh radius on `K` across the stack yields an unbiased, consistent estimate of each pixel's inverse-depth offset — directly recovering metric depth.
 
-## Highlights
 
-- **Depth-map-free bokeh.** A physically calibrated, controllable bokeh generator that needs no depth map at inference.
-- **Supervision-free geometric cue.** Synthetic defocus acts as an auxiliary signal that resolves geometric ambiguity in textureless and distant regions.
-- **Plug-and-play.** DSFA drops into existing ViT depth encoders without modifying the decoder, loss, or evaluation pipeline.
-- **Consistent gains.** Improves visual bokeh fidelity over depth-based baselines and boosts SOTA depth models in both in-domain and zero-shot settings.
+## TODO
 
-## Code Release
-
-The official code and pretrained models will be released soon. Please star this repository and check the [project page](https://fogradio.github.io/BokehDepth_Project/) for updates.
+- [ ] Release inference code
+- [ ] Release training code
+- [ ] Release model
 
 ## Citation
 
@@ -92,7 +88,7 @@ If you find our work useful, please consider citing:
 
 ## Acknowledgement
 
-This research is supported by the National Research Foundation, Singapore, under its NRF Fellowship Award NRF-NRFF16-2024-0003 and NTU SUG-NAP, and by cash and in-kind funding from NTU S-Lab and industry partner(s). We build upon [FLUX.1-Kontext](https://github.com/black-forest-labs/flux), [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2), [UniDepthV2](https://github.com/lpiccinelli-eth/UniDepth), and [BokehMe](https://github.com/JuewenPeng/BokehMe).
+We build upon [BokehDiffusion](https://github.com/atfortes/BokehDiffusion), [FLUX.1-Kontext](https://github.com/black-forest-labs/flux), [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2), and [UniDepthV2](https://github.com/lpiccinelli-eth/UniDepth). We would like to thank these projects that made this work possible.
 
 ## License
 
