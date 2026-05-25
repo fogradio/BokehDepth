@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://fogradio.github.io">Hangwei Zhang</a><sup>1,2</sup>&nbsp;&nbsp;
-  <a href="https://atfortes.github.io/">Armando Teles Fortes</a><sup>1</sup>&nbsp;&nbsp;
+  <a href="https://atfortes.github.io/">Armando Fortes</a><sup>1</sup>&nbsp;&nbsp;
   <a href="https://wtybest.github.io/">Tianyi Wei</a><sup>1</sup>&nbsp;&nbsp;
   <a href="https://xingangpan.github.io">Xingang Pan</a><sup>1</sup>
 </p>
