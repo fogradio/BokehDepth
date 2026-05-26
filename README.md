@@ -66,11 +66,11 @@ A **Divided Space Focus Attention (DSFA)** module is inserted into the ViT depth
 If you find our work useful, please consider citing:
 
 ```bibtex
-@inproceedings{zhang2026bokehdepth,
-  title     = {Boosting Monocular Metric Depth Estimation via Bokeh Rendering},
-  author    = {Zhang, Hangwei and Fortes, Armando Teles and Wei, Tianyi and Pan, Xingang},
-  booktitle = {International Conference on Machine Learning (ICML)},
-  year      = {2026}
+@article{zhang2025bokehdepth,
+  title={Boosting Monocular Metric Depth Estimation via Bokeh Rendering},
+  author={Zhang, Hangwei and Fortes, Armando Teles and Wei, Tianyi and Pan, Xingang},
+  journal={arXiv preprint arXiv:2512.12425},
+  year={2025}
 }
 ```
 
