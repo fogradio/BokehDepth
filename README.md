@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://fogradio.github.io/BokehDepth_Project/"><img src="https://img.shields.io/badge/Project-Page-blue" alt="Project Page"></a>
   <a href="https://arxiv.org/abs/2512.12425"><img src="https://img.shields.io/badge/Paper-ICML%202026-red" alt="Paper"></a>
-  <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Model-Coming%20Soon-yellow" alt="HF Model Coming Soon">
+  <a href="https://huggingface.co/fogradio/BokehDepth"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Model-Coming%20Soon-yellow" alt="Model"></a>
 </p>
 
 <p align="center">
