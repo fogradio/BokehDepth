@@ -55,10 +55,67 @@ A **Divided Space Focus Attention (DSFA)** module is inserted into the ViT depth
 > A *Depth-from-Bokeh Sweep* proposition shows this cue is principled: under calibrated control, regressing the bokeh radius on `K` across the stack gives an unbiased and consistent estimate of each pixel's inverse-depth offset, which recovers metric depth.
 
 
+## Installation
+
+We ship a one-shot installer that mirrors the `bokehdepth` conda environment we used during development. Everything (CUDA runtime included) is fetched from PyPI through the +cu128 wheels, so the host machine only needs a working NVIDIA driver and `conda`.
+
+```bash
+git clone https://github.com/<your-org>/BokehDepth.git
+cd BokehDepth
+bash env/install.sh            # creates the `bokehdepth` env and wires LD_LIBRARY_PATH
+conda activate bokehdepth       # ready to use
+```
+
+`env/install.sh` does three things:
+
+1. Creates / refreshes the conda environment from `env/environment.yml` (Python 3.10, `ffmpeg`, and an optional GCC toolchain).
+2. Installs every pip package listed in `env/requirements.txt`, which includes `torch==2.8.0+cu128`, `xformers`, `diffusers`, `transformers`, `accelerate`, and the rest of the BokehDepth stack.
+3. Drops two scripts into `${CONDA_PREFIX}/etc/conda/{activate,deactivate}.d/` so that activating the env automatically prepends the right CUDA wheel directories (and the conda env's `lib/`) to `LD_LIBRARY_PATH`. This is what lets `run_inference.sh` stay clean.
+
+> Override the env name with `CONDA_ENV=myenv bash env/install.sh`.
+>
+> If you also need the optional UniDepth CUDA extensions (only used for training losses, **not** for inference), build them after activation:
+> ```bash
+> cd UniDepth/unidepth/ops/knn            && python setup.py install && cd -
+> cd UniDepth/unidepth/ops/extract_patches && python setup.py install && cd -
+> ```
+
+## Weights
+
+Pretrained checkpoints live on the [`fogradio/BokehDepth`](https://huggingface.co/fogradio/BokehDepth) Hugging Face model card. Place them under `weights/` so that the inference script can pick them up with its defaults:
+
+```bash
+mkdir -p weights
+huggingface-cli download fogradio/BokehDepth --local-dir weights/
+```
+
+The Stage-1 base model (`black-forest-labs/FLUX.1-Kontext-dev`) is downloaded on first use through `diffusers`; make sure your Hugging Face token has accepted the FLUX license.
+
+## Inference
+
+With the env activated and the weights in place, run:
+
+```bash
+bash run_inference.sh
+```
+
+`run_inference.sh` reads its defaults from environment variables (override any of them inline). The interesting ones:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `REF_IMAGE` | `examples/ref.png` | Input RGB image |
+| `K_VALUES` | `10.0 20.0 30.0` | Bokeh strengths used to build the defocus stack |
+| `ADAPTER_CKPT` | `weights/bokeh_lora.bin` | Stage-1 LoRA adapter |
+| `WEIGHTS_PATH` | `weights/UDv2_dsfa_release.pth` | Stage-2 UniDepthV2-DSFA checkpoint |
+| `CONFIG_PATH` | `UniDepth/configs/config_v2_vitl14_DSFA_inference.json` | Stage-2 model config |
+| `OUTPUT_ROOT` | `examples/` | Where per-run subdirectories are created |
+
+Each run produces a timestamped directory under `OUTPUT_ROOT/` containing the Stage-1 defocus stack, the Stage-2 metric depth (`depth.npy` + `depth_color.png`), and a `pipeline_summary.json` recording every argument that was used.
+
 ## TODO
 
 - [x] Release model
-- [ ] Release inference code
+- [x] Release inference code
 - [ ] Release training code
 
 

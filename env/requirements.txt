@@ -1,0 +1,71 @@
+# PyTorch 2.8 + CUDA 12.8 build (matches the bokehdepth conda env we used to
+# develop BokehDepth). The +cu128 wheels bundle every CUDA runtime library they
+# need under site-packages/nvidia/<pkg>/lib/ -- the activate.d hook shipped in
+# env/activate.d/ adds those directories to LD_LIBRARY_PATH automatically.
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.8.0+cu128
+torchvision==0.23.0+cu128
+torchaudio==2.8.0+cu128
+xformers==0.0.32.post2
+triton==3.4.0
+cupy-cuda12x==13.6.0
+
+# HuggingFace stack used by Stage-1 (Flux Kontext + bokeh LoRA adapter).
+accelerate==1.10.1
+diffusers==0.35.0
+transformers==4.56.1
+tokenizers==0.22.0
+sentencepiece==0.2.1
+huggingface-hub==0.34.4
+hf-xet==1.1.5
+safetensors==0.6.2
+peft==0.17.1
+timm==1.0.20
+
+# Numerical / image stack used by both stages.
+numpy==2.2.6
+scipy==1.15.3
+scikit-image==0.25.2
+matplotlib==3.10.6
+opencv-python==4.12.0
+opencv-python-headless==4.12.0
+pillow==10.4.0
+pillow_heif==1.1.1
+imageio==2.36.1
+kornia==0.8.1
+kornia_rs==0.1.9
+einops==0.8.1
+lpips==0.1.4
+piq==0.8.0
+h5py==3.11.0
+tables==3.10.1
+numexpr==2.13.1
+blosc2==3.9.1
+pandas==2.2.3
+tifffile==2025.5.10
+
+# Tracking / logging.
+tensorboard==2.19.0
+tensorboard-data-server==0.7.2
+wandb==0.21.0
+sentry-sdk==2.32.0
+GitPython==3.1.44
+gitdb==4.0.12
+
+# Optimizers / misc.
+prodigyopt==1.1.2
+lion-pytorch==0.2.3
+hydra-core==1.3.2
+easydict==1.13
+pycairo==1.28.0
+torchmetrics==1.8.2
+
+# ---------------------------------------------------------------------------
+# The following local CUDA extensions live inside the UniDepth/ subtree
+# (UniDepth/unidepth/ops/{knn,extract_patches}). They are NOT required for
+# the inference pipeline (Stage-1 + Stage-2 DSFA + Middlebury-style eval).
+# If you want to run UniDepth training or the chamfer-distance / local-ssi
+# losses, build them with:
+#     cd UniDepth/unidepth/ops/knn            && python setup.py install
+#     cd UniDepth/unidepth/ops/extract_patches && python setup.py install
+# ---------------------------------------------------------------------------

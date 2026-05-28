@@ -1,0 +1,27 @@
+# Conda environment for BokehDepth.
+# This file only pins the Python interpreter and a handful of system-level
+# libraries that are awkward to bring in via pip (ffmpeg for video I/O, the
+# build toolchain needed by the optional UniDepth CUDA extensions). All of
+# the Python wheels -- including PyTorch and the CUDA 12.8 runtime that
+# ships with it -- come from env/requirements.txt so we stay reproducible
+# across machines that have different system CUDA versions.
+#
+# Create / refresh with:
+#     conda env create -f env/environment.yml      # first time
+#     conda env update -f env/environment.yml --prune
+#
+# Then run env/install.sh once to install the pip requirements and the
+# activate.d hook that wires LD_LIBRARY_PATH so the inference scripts do
+# not need any per-invocation environment patches.
+
+name: bokehdepth
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - ffmpeg
+  # Compiler toolchain only used when building the optional CUDA extensions
+  # under UniDepth/unidepth/ops/. Harmless to keep installed otherwise.
+  - gcc_linux-64=11
+  - gxx_linux-64=11

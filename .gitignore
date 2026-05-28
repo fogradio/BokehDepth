@@ -1,0 +1,5 @@
+weights
+
+
+# Python bytecode caches (recursively ignored anywhere in the tree)
+__pycache__/

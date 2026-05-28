@@ -1,0 +1,124 @@
+{
+    "generic": {
+        "seed": 13,
+        "deterministic": true
+    },
+    "training": {
+        "use_checkpoint": false,
+        "pretrained": null,
+        "resume_checkpoint": null,
+        "f16": true,
+        "wd": 0.1,
+        "ld": 1.0,
+        "lr": 0.0001,
+        "drop_path": 0.0,
+        "find_unused_parameters": false,
+        "losses": {
+            "depth": {
+                "name": "SILog",
+                "weight": 1.0,
+                "output_fn": "sqrt",
+                "input_fn": "log",
+                "dims": [-2, -1],
+                "integrated": 0.15
+            },
+            "invariance": {
+                "name": "SelfDistill",
+                "weight": 0.1,
+                "output_fn": "sqrt"
+            },
+            "camera": {
+                "name": "Regression",
+                "weight": 0.25,
+                "gamma": 1.0,
+                "alpha": 1.0,
+                "fn": "l2",
+                "output_fn": "sqrt",
+                "input_fn": "linear"
+            },
+            "ssi": {
+                "name": "EdgeGuidedLocalSSI",
+                "weight": 1.0,
+                "output_fn": "sqrt",
+                "input_fn": "log1i",
+                "use_global": true,
+                "min_samples": 6
+            },
+            "confidence": {
+                "name": "Confidence",
+                "weight": 0.1,
+                "gamma": 1.0,
+                "alpha": 1.0,
+                "fn": "l1",
+                "output_fn": "sqrt",
+                "input_fn": "linear"
+            }
+        }
+    },
+    "data": {
+        "image_shape": [480, 640],
+        "normalization": "imagenet",
+        "num_copies": 1,
+        "num_frames": 1,
+        "defocus_stack_indices": [0, 1, 2],
+        "data_root": "datasets",
+        "crop": "garg",
+        "augmentations": {
+            "random_scale": 1.0,
+            "random_jitter": 0.0,
+            "jitter_p": 0.0,
+            "random_blur": 0.0,
+            "blur_p": 0.0,
+            "random_gamma": 0.0,
+            "gamma_p": 0.0,
+            "grayscale_p": 0.0,
+            "flip_p": 0.0,
+            "test_context": 1.0,
+            "shape_constraints": {
+                "ratio_bounds": [0.5, 2.5],
+                "pixels_max": 600000,
+                "pixels_min": 200000,
+                "height_min": 15,
+                "width_min": 15,
+                "shape_mult": 14,
+                "sample": false
+            }
+        }
+    },
+    "model": {
+        "name": "UniDepthV2DSFA",
+        "num_heads": 8,
+        "expansion": 4,
+        "layer_scale": 1.0,
+        "pixel_decoder": {
+            "name": "Decoder",
+            "hidden_dim": 512,
+            "dropout": 0.0,
+            "depths": [2, 2, 2],
+            "out_dim": 64,
+            "kernel_size": 3
+        },
+        "pixel_encoder": {
+            "lr": 2e-06,
+            "wd": 0.1,
+            "name": "dinov2_vitl14_DSFA",
+            "frozen_stages": 0,
+            "num_register_tokens": 0,
+            "use_norm": true,
+            "freeze_norm": true,
+            "pretrained": null,
+            "stacking_fn": "last",
+            "output_idx": [6, 12, 18, 24],
+            "fusion_layers": [0, 1, 2, 3],
+            "fusion_num_heads": 8,
+            "fusion_dropout": 0.0,
+            "fusion_layerscale": 0.1,
+            "attn_dropout": 0.0,
+            "alibi_scale": 1.0,
+            "use_sdpa": true,
+            "use_k_prefix": true,
+            "use_cls_token": false,
+            "grad_free_stack": true
+        }
+    }
+}

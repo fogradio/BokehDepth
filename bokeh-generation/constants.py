@@ -1,0 +1,18 @@
+FLUX_TRANSFORMER_BLOCKS = ["transformer_blocks.0", "transformer_blocks.1", "transformer_blocks.2", "transformer_blocks.3",
+                           "transformer_blocks.4", "transformer_blocks.5", "transformer_blocks.6", "transformer_blocks.7",
+                           "transformer_blocks.8", "transformer_blocks.9", "transformer_blocks.10", "transformer_blocks.11",
+                           "transformer_blocks.12", "transformer_blocks.13", "transformer_blocks.14", "transformer_blocks.15",
+                           "transformer_blocks.16", "transformer_blocks.17", "transformer_blocks.18",
+                           "single_transformer_blocks.0", "single_transformer_blocks.1", "single_transformer_blocks.2", "single_transformer_blocks.3",
+                           "single_transformer_blocks.4", "single_transformer_blocks.5", "single_transformer_blocks.6", "single_transformer_blocks.7",
+                           "single_transformer_blocks.8", "single_transformer_blocks.9", "single_transformer_blocks.10", "single_transformer_blocks.11",
+                           "single_transformer_blocks.12", "single_transformer_blocks.13", "single_transformer_blocks.14", "single_transformer_blocks.15",
+                           "single_transformer_blocks.16", "single_transformer_blocks.17", "single_transformer_blocks.18", "single_transformer_blocks.19",
+                           "single_transformer_blocks.20", "single_transformer_blocks.21", "single_transformer_blocks.22", "single_transformer_blocks.23",
+                           "single_transformer_blocks.24", "single_transformer_blocks.25", "single_transformer_blocks.26", "single_transformer_blocks.27",
+                           "single_transformer_blocks.28", "single_transformer_blocks.29", "single_transformer_blocks.30", "single_transformer_blocks.31",
+                           "single_transformer_blocks.32", "single_transformer_blocks.33", "single_transformer_blocks.34", "single_transformer_blocks.35",
+                           "single_transformer_blocks.36", "single_transformer_blocks.37"]
+FLUX_SIZE_PRESETS = [(1024, 1024), (1024, 960), (960, 1024), (1024, 896), (896, 1024), (1024, 832),
+                     (832, 1024), (1024, 768), (768, 1024), (1024, 704), (704, 1024), (1024, 640),
+                     (640, 1024), (1024, 576), (576, 1024), (1024, 512), (512, 1024), (704, 704)]
