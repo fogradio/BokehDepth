@@ -57,9 +57,10 @@ A **Divided Space Focus Attention (DSFA)** module is inserted into the ViT depth
 
 ## TODO
 
+- [ ] Release model
 - [ ] Release inference code
 - [ ] Release training code
-- [ ] Release model
+
 
 ## Citation
 
