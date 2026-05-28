@@ -78,6 +78,4 @@ If you find our work useful, please consider citing:
 
 We build upon [BokehDiffusion](https://github.com/atfortes/BokehDiffusion), [FLUX.1-Kontext](https://github.com/black-forest-labs/flux), [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2), and [UniDepthV2](https://github.com/lpiccinelli-eth/UniDepth). We would like to thank these projects that made this work possible.
 
-## License
 
-This project is released under the license specified in [LICENSE](LICENSE).
