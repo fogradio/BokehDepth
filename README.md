@@ -126,7 +126,7 @@ If you find our work useful, please consider citing:
 ```bibtex
 @article{zhang2025bokehdepth,
   title={Boosting Monocular Metric Depth Estimation via Bokeh Rendering},
-  author={Zhang, Hangwei and Fortes, Armando Teles and Wei, Tianyi and Pan, Xingang},
+  author={Zhang, Hangwei and Fortes, Armando and Wei, Tianyi and Pan, Xingang},
   journal={arXiv preprint arXiv:2512.12425},
   year={2025}
 }
