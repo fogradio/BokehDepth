@@ -60,7 +60,7 @@ A **Divided Space Focus Attention (DSFA)** module is inserted into the ViT depth
 We ship a one-shot installer that mirrors the `bokehdepth` conda environment we used during development. Everything (CUDA runtime included) is fetched from PyPI through the +cu128 wheels, so the host machine only needs a working NVIDIA driver and `conda`.
 
 ```bash
-git clone https://github.com/<your-org>/BokehDepth.git
+git clone https://github.com/fogradio/BokehDepth.git
 cd BokehDepth
 bash env/install.sh            # creates the `bokehdepth` env and wires LD_LIBRARY_PATH
 conda activate bokehdepth       # ready to use
