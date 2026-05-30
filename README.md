@@ -190,10 +190,10 @@ The default configuration in `train_flux_I2I.sh` mirrors the Stage-1 LoRA releas
 
 The Stage-2 training entrypoint is `UniDepth/scripts/train_DSFA.py`, launched via `UniDepth/scripts/dist_train_DSFA.sh`. Reference training configurations live in `UniDepth/configs/`; `config_v2_vitl14_DSFA_inference.json` is reserved for inference:
 
-| Config | Train datasets | Validation | Manifest fields | Notes |
-| --- | --- | --- | --- | --- |
-| `config_v2_vitl14_DSFA_nyuv2.json` | `NYUv2Depth` | `NYUv2Depth` | `nyuv2depth_manifest_path`, `nyuv2depth_val_manifest_path` | Indoor setup; batch size 32; MSE loss enabled |
-| `config_v2_vitl14_DSFA_hypersim.json` | `HyperSim` | `NYUv2Depth` | `hypersim_manifest_paths`, `nyuv2depth_val_manifest_path` | Synthetic-supervision setup; batch size 32; MSE loss disabled |
+| Config | Train datasets | Notes |
+| --- | --- | --- |
+| `config_v2_vitl14_DSFA_nyuv2.json` | `NYUv2Depth` | Indoor setup; batch size 32; MSE loss enabled |
+| `config_v2_vitl14_DSFA_hypersim.json` | `HyperSim` | Synthetic-supervision setup; batch size 32; MSE loss disabled |
 
 Each manifest field should point to JSONL files produced by your dataset-preparation pipeline. `hypersim_manifest_paths` accepts a list of JSONL files and can also be overridden at launch with `HYPERSIM_MANIFEST_PATHS` or `HYPERSIM_MANIFEST_PATH`. See the in-code field documentation in `UniDepth/unidepth/datasets/{nyuv2,hypersim}.py`. The conditioning K value is read from the per-sample metadata, and the released configs select stack entries with `defocus_stack_indices: [0, 1, 2]`.
 
