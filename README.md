@@ -91,6 +91,17 @@ huggingface-cli download fogradio/BokehDepth --local-dir weights/
 
 The Stage-1 base model (`black-forest-labs/FLUX.1-Kontext-dev`) is downloaded on first use through `diffusers`; make sure your Hugging Face token has accepted the FLUX license.
 
+### BokehMe weights (training only)
+
+Stage-1 training relies on the BokehMe renderer to synthesise (image, target-bokeh) pairs on the fly. The training scripts expect the two BokehMe checkpoints at:
+
+```
+bokeh-generation/dataset/bokehme/checkpoints/arnet.pth
+bokeh-generation/dataset/bokehme/checkpoints/iunet.pth
+```
+
+Download them from the official [BokehMe release](https://github.com/JuewenPeng/BokehMe) (the authors publish `arnet.pth` / `iunet.pth` alongside their inference code) and copy the two files to the paths above. Alternatively, point the trainer elsewhere with `--arnet_ckpt /path/to/arnet.pth --iunet_ckpt /path/to/iunet.pth`. Inference does **not** require these weights.
+
 ## Inference
 
 With the env activated and the weights in place, run:
@@ -112,11 +123,163 @@ bash run_inference.sh
 
 Each run produces a timestamped directory under `OUTPUT_ROOT/` containing the Stage-1 defocus stack, the Stage-2 metric depth (`depth.npy` + `depth_color.png`), and a `pipeline_summary.json` recording every argument that was used.
 
+## Training
+
+We release the full training code for both stages and both Stage-2 DSFA variants. Stage-1 trains the bokeh-generation LoRA adapter on top of a frozen `FLUX.1-Kontext-dev`; Stage-2 trains DSFA depth fusion for UniDepthV2 and Depth Anything V2.
+
+| Component | Training code | Launcher / config |
+| --- | --- | --- |
+| Stage-1 bokeh generation | `bokeh-generation/train_flux_I2I.py` | `bokeh-generation/train_flux_I2I.sh` |
+| Stage-2 UniDepthV2-DSFA | `UniDepth/scripts/train_DSFA.py` | `UniDepth/scripts/dist_train_DSFA.sh`, `UniDepth/configs/config_v2_vitl14_DSFA_*.json` |
+| Stage-2 Depth Anything V2-DSFA | `DepthAnythingV2/scripts/train_dsfa.py` | `DepthAnythingV2/scripts/dist_train_dsfa.sh`, `DepthAnythingV2/configs/dsfa_train.json` |
+
+The Stage-1 script mixes T2I batches, with on-the-fly BokehMe synthesis, and I2I batches, with pre-rendered bokeh targets. The Stage-2 scripts consume calibrated defocus-stack metadata and train the DSFA fusion modules together with the depth backbone according to each variant's configuration.
+
+### Stage-1 — Build bokeh-generation manifests
+
+`train_flux_I2I.py` consumes one or more JSONL "manifests" listing the per-sample paths and the calibrated bokeh-strength conditioning value `dof_cond` (`K`). `bokeh-generation/build_manifest.py` turns a simple CSV table into such a manifest, without baking in any dataset-specific layout.
+
+CSV templates are provided under `bokeh-generation/examples/`:
+
+| File | Purpose |
+| --- | --- |
+| `examples/manifest_itw.csv` | In-the-wild Flickr-style samples used for **T2I + on-the-fly BokehMe synthesis**. Provide depth maps and foreground masks; bokeh targets are rendered at training time. |
+| `examples/manifest_i2i.csv` | Paired (sharp, bokeh) captures used for **I2I**. Either supply EXIF fields (`N`, `fmm`, `f35mm`, `s1`, image dimensions) so the script computes `dof_cond`, or pass a pre-computed `dof_cond` directly. |
+
+Fill in the CSVs with absolute paths, then convert them:
+
+```bash
+cd bokeh-generation
+python build_manifest.py examples/manifest_itw.csv --output dataset/itw_dataset.jsonl
+python build_manifest.py examples/manifest_i2i.csv --output dataset/i2i_dataset.jsonl
+```
+
+`build_manifest.py --help` documents every column. The most important ones:
+
+- `input_image_path` (required) — absolute path to the source image.
+- `target_image_path` — set this for I2I rows; leave blank for T2I rows.
+- `dof_cond` *or* the EXIF tuple `(N, fmm, f35mm, s1)` — needed to compute the conditioning K value.
+- `depth_map_path` / `fg_mask_path` — required for the T2I synthetic path; optional (and ignored) for I2I rows that already carry a target.
+- `captions` — pipe-separated list of text prompts.
+
+Multiple CSVs can be concatenated by listing them in order:
+
+```bash
+python build_manifest.py samples_a.csv samples_b.csv -o dataset/combined.jsonl
+```
+
+### Stage-1 — Launch bokeh-generation training
+
+Pre-flight checks:
+
+1. Ensure the BokehMe checkpoints described under [BokehMe weights (training only)](#bokehme-weights-training-only) are in place.
+2. Edit `bokeh-generation/train_flux_I2I.sh` and point `ITW_JSONL` / `I2I_JSONLS` (and, optionally, `POST_BOKEME_JSONL`) at the manifests you generated above. Set `OUTPUT_DIR` to your desired checkpoint directory.
+
+Then:
+
+```bash
+cd bokeh-generation
+bash train_flux_I2I.sh
+```
+
+The shell script uses `accelerate launch` with `accelerate_config_4gpu.yaml` (4×GPU, bf16); adjust either the launcher arguments or the config file if your hardware differs. Each run writes a timestamped sub-directory under `OUTPUT_DIR/` containing accelerate checkpoints and wandb logs (set `--report_to none` to disable wandb).
+
+The default configuration in `train_flux_I2I.sh` mirrors the Stage-1 LoRA release (`lora_rank=128`, `block_ids=0-56`, `--unfreeze_q`, `--unfreeze_k`, `prodigy` optimizer, 40 epochs). Inspect `train_flux_I2I.py --help` for the full list of flags, including variable-resolution training (`--variable_resolution`) and the BokehMe-failure online-synthesis mode (`--post_bokeme_syn`).
+
+### Stage-2 — UniDepthV2-DSFA depth fusion
+
+The Stage-2 training entrypoint is `UniDepth/scripts/train_DSFA.py`, launched via `UniDepth/scripts/dist_train_DSFA.sh`. Reference training configurations live in `UniDepth/configs/`; `config_v2_vitl14_DSFA_inference.json` is reserved for inference:
+
+| Config | Train datasets | Validation | Manifest fields | Notes |
+| --- | --- | --- | --- | --- |
+| `config_v2_vitl14_DSFA_nyuv2.json` | `NYUv2Depth` | `NYUv2Depth` | `nyuv2depth_manifest_path`, `nyuv2depth_val_manifest_path` | Indoor setup; batch size 32; MSE loss enabled |
+| `config_v2_vitl14_DSFA_hypersim.json` | `HyperSim` | `NYUv2Depth` | `hypersim_manifest_paths`, `nyuv2depth_val_manifest_path` | Synthetic-supervision setup; batch size 32; MSE loss disabled |
+
+Each manifest field should point to JSONL files produced by your dataset-preparation pipeline. `hypersim_manifest_paths` accepts a list of JSONL files and can also be overridden at launch with `HYPERSIM_MANIFEST_PATHS` or `HYPERSIM_MANIFEST_PATH`. See the in-code field documentation in `UniDepth/unidepth/datasets/{nyuv2,hypersim}.py`. The conditioning K value is read from the per-sample metadata, and the released configs select stack entries with `defocus_stack_indices: [0, 1, 2]`.
+
+To run training on 4 GPUs:
+
+```bash
+cd UniDepth
+bash scripts/dist_train_DSFA.sh configs/config_v2_vitl14_DSFA_nyuv2.json
+```
+
+Override the default 4-GPU launch via environment variables, e.g. `GPUS=2 SAVE_INTERVAL=500 bash scripts/dist_train_DSFA.sh ...`. Pre-trained backbone weights are loaded from `training.pretrained` and the pixel encoder's own `pretrained` key in the JSON — point both at your UniDepthV2 ViT-L/14 checkpoint before launching. Resuming a partial run only needs `RESUME_CKPT=/path/to/latest.pth bash scripts/dist_train_DSFA.sh ...`.
+
+### Stage-2 — Depth Anything V2-DSFA depth fusion
+
+The Depth Anything V2 DSFA release lives under `DepthAnythingV2/`. Spatial attention is applied within each stack frame, focus attention is applied across frames at each spatial location, and only the refined reference-frame tokens are decoded by the original DPT head.
+
+The folder contains:
+
+| Path | Purpose |
+| --- | --- |
+| `DepthAnythingV2/depth_anything_v2/dpt_dsfa.py` | Depth Anything V2 model with DSFA encoder fusion |
+| `DepthAnythingV2/scripts/infer_dsfa.py` | Inference from a reference image plus a calibrated focus stack |
+| `DepthAnythingV2/scripts/train_dsfa.py` | Training from JSON or JSONL manifests |
+| `DepthAnythingV2/scripts/dist_train_dsfa.sh` | Accelerate launcher for multi-GPU training |
+| `DepthAnythingV2/configs/` | Reference inference and training hyperparameters |
+
+Depth Anything V2 DSFA accepts the same simple stack manifest shape used by BokehDepth Stage-1 outputs:
+
+```json
+{
+  "ref": "/path/to/ref.png",
+  "depth": "/path/to/depth.npy",
+  "stack": ["/path/to/stack_0.png", "/path/to/stack_1.png"],
+  "k": [10.0, 20.0]
+}
+```
+
+Run inference from a manifest:
+
+```bash
+cd DepthAnythingV2
+python scripts/infer_dsfa.py \
+  --sample-path ../examples/run_xxx/manifest.jsonl \
+  --checkpoint ../weights/DAV2_dsfa_release.pth \
+  --outdir outputs/dav2_dsfa \
+  --save-numpy
+```
+
+Or pass the image stack directly:
+
+```bash
+cd DepthAnythingV2
+python scripts/infer_dsfa.py \
+  --ref-image /path/to/ref.png \
+  --stack-images /path/to/stack_0.png /path/to/stack_1.png \
+  --k-values 10.0 20.0 \
+  --checkpoint ../weights/DAV2_dsfa_release.pth
+```
+
+Train on one or more generated manifests:
+
+```bash
+cd DepthAnythingV2
+python scripts/train_dsfa.py \
+  --config configs/dsfa_train.json \
+  --manifest-path /path/to/train_manifest.jsonl \
+  --pretrained-from ../weights/depth_anything_v2_metric_vkitti_vitl.pth \
+  --save-path outputs/train_dsfa
+```
+
+For distributed training:
+
+```bash
+cd DepthAnythingV2
+MANIFEST_PATH=/path/to/train_manifest.jsonl \
+PRETRAINED_FROM=../weights/depth_anything_v2_metric_vkitti_vitl.pth \
+GPUS=4 \
+bash scripts/dist_train_dsfa.sh
+```
+
 ## TODO
 
 - [x] Release model
 - [x] Release inference code
-- [ ] Release training code
+- [x] Release Stage-1 (bokeh generation) training code
+- [x] Release Stage-2 (depth fusion) training code
 
 
 ## Citation
@@ -134,6 +297,4 @@ If you find our work useful, please consider citing:
 
 ## Acknowledgement
 
-We build upon [BokehDiffusion](https://github.com/atfortes/BokehDiffusion), [FLUX.1-Kontext](https://github.com/black-forest-labs/flux), [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2), and [UniDepthV2](https://github.com/lpiccinelli-eth/UniDepth). We would like to thank these projects that made this work possible.
-
-
+We build upon [BokehDiffusion](https://github.com/atfortes/BokehDiffusion), [FLUX.1-Kontext](https://github.com/black-forest-labs/flux), [BokehMe](https://github.com/JuewenPeng/BokehMe), [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2), and [UniDepthV2](https://github.com/lpiccinelli-eth/UniDepth). We would like to thank these projects that made this work possible.

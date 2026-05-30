@@ -1,0 +1,11 @@
+{
+  "encoder": "vitl",
+  "input_size": 518,
+  "max_depth": 80.0,
+  "fusion_layers": [2, 3],
+  "num_heads": 8,
+  "attn_dropout": 0.0,
+  "layerscale_init": 0.1,
+  "alibi_scale": 1.0,
+  "use_sdpa": true
+}

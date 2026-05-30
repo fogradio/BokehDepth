@@ -1,4 +1,3 @@
-from contextlib import nullcontext
 from typing import List, Optional, Tuple
 
 import torch
@@ -285,13 +284,11 @@ class DividedSpaceFocusBlock(nn.Module):
         layerscale_init: float = 0.1,
         alibi_scale: float = 1.0,
         use_sdpa: bool = True,
-        use_k_prefix: bool = True,
     ) -> None:
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.alibi_scale = alibi_scale
-        self.use_k_prefix = use_k_prefix
 
         # Spatial branch (frame-wise)
         self.ln_space_attn = nn.LayerNorm(embed_dim)
@@ -321,17 +318,13 @@ class DividedSpaceFocusBlock(nn.Module):
             layerscale_init * torch.ones(embed_dim)
         )
 
-        if self.use_k_prefix:
-            hidden = max(1, embed_dim // 4)
-            self.k_embed = nn.Sequential(
-                nn.Linear(1, hidden),
-                nn.ReLU(True),
-                nn.Linear(hidden, embed_dim),
-            )
-            self.focus_film = nn.Linear(embed_dim, embed_dim * 2)
-        else:
-            self.k_embed = None
-            self.focus_film = None
+        hidden = max(1, embed_dim // 4)
+        self.k_embed = nn.Sequential(
+            nn.Linear(1, hidden),
+            nn.ReLU(True),
+            nn.Linear(hidden, embed_dim),
+        )
+        self.focus_film = nn.Linear(embed_dim, embed_dim * 2)
 
     def _residual(
         self, x: torch.Tensor, dx: torch.Tensor, gamma: torch.Tensor
@@ -343,7 +336,7 @@ class DividedSpaceFocusBlock(nn.Module):
     ) -> torch.Tensor:
         bsz, num_frames, num_patches, dim = x.shape
         seq = x.reshape(bsz * num_frames, num_patches, dim)
-        if self.use_k_prefix and k_tokens is not None:
+        if k_tokens is not None:
             k_tok = k_tokens.reshape(bsz * num_frames, 1, dim)
             seq = torch.cat([k_tok, seq], dim=1)
 
@@ -353,7 +346,7 @@ class DividedSpaceFocusBlock(nn.Module):
         h2 = self.space_ffn(self.ln_space_ffn(seq))
         seq = self._residual(seq, h2, self.gamma_space_ffn)
 
-        if self.use_k_prefix and k_tokens is not None:
+        if k_tokens is not None:
             seq = seq[:, 1:, :]
 
         return seq.reshape(bsz, num_frames, num_patches, dim)
@@ -411,32 +404,26 @@ class DividedSpaceFocusBlock(nn.Module):
             [ref_patches.unsqueeze(1), stack_patches], dim=1
         )  # [B, F, K, D]
 
-        if self.use_k_prefix:
-            device = ref_patches.device
-            dtype = ref_patches.dtype
+        device = ref_patches.device
+        dtype = ref_patches.dtype
 
-            if k_stack is None:
-                k_stack = torch.zeros(
-                    bsz,
-                    num_frames - 1,
-                    1,
-                    device=device,
-                    dtype=dtype,
-                )
-            elif k_stack.dim() == 2:
-                k_stack = k_stack.unsqueeze(-1)
+        if k_stack is None:
+            k_stack = torch.zeros(
+                bsz,
+                num_frames - 1,
+                1,
+                device=device,
+                dtype=dtype,
+            )
+        elif k_stack.dim() == 2:
+            k_stack = k_stack.unsqueeze(-1)
 
-            zeros = torch.zeros(bsz, 1, 1, device=device, dtype=k_stack.dtype)
-            k_values = torch.cat([zeros, k_stack], dim=1)
-            k_tokens = self.k_embed(k_values.to(dtype=self.k_embed[0].weight.dtype))
-            film_scale, film_shift = self.focus_film(k_tokens).chunk(2, dim=-1)
-            film_scale = film_scale.to(dtype=ref_patches.dtype)
-            film_shift = film_shift.to(dtype=ref_patches.dtype)
-        else:
-            k_values = None
-            k_tokens = None
-            film_scale = None
-            film_shift = None
+        zeros = torch.zeros(bsz, 1, 1, device=device, dtype=k_stack.dtype)
+        k_values = torch.cat([zeros, k_stack], dim=1)
+        k_tokens = self.k_embed(k_values.to(dtype=self.k_embed[0].weight.dtype))
+        film_scale, film_shift = self.focus_film(k_tokens).chunk(2, dim=-1)
+        film_scale = film_scale.to(dtype=ref_patches.dtype)
+        film_shift = film_shift.to(dtype=ref_patches.dtype)
 
         x = self._space_attention(x, k_tokens)
         x = self._focus_attention(x, k_values, film_scale, film_shift)
@@ -492,9 +479,6 @@ class DSFADinov2Encoder(nn.Module):
         layerscale_init = config.get("fusion_layerscale", config.get("layer_scale", 0.1))
         alibi_scale = config.get("alibi_scale", 1.0)
         use_sdpa = config.get("use_sdpa", True)
-        use_k_prefix = config.get("use_k_prefix", True)
-
-        self.grad_free_stack = config.get("grad_free_stack", False)
 
         self.stage_ranges = list(zip([0, *self.depths[:-1]], self.depths))
         self.fusion_blocks = nn.ModuleDict()
@@ -506,7 +490,6 @@ class DSFADinov2Encoder(nn.Module):
                 layerscale_init=layerscale_init,
                 alibi_scale=alibi_scale,
                 use_sdpa=use_sdpa,
-                use_k_prefix=use_k_prefix,
             )
 
     def forward(
@@ -533,11 +516,7 @@ class DSFADinov2Encoder(nn.Module):
         batch, stack_len = focus_stack.shape[:2]
         frames = focus_stack.reshape(batch * stack_len, *focus_stack.shape[2:])
 
-        ctx = nullcontext()
-        if self.grad_free_stack and self.training:
-            ctx = torch.no_grad()
-        with ctx:
-            stack_blocks, stack_cls = self.backbone(frames)
+        stack_blocks, stack_cls = self.backbone(frames)
 
         stack_blocks = [
             feat.reshape(batch, stack_len, *feat.shape[1:]) for feat in stack_blocks

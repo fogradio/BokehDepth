@@ -4,15 +4,28 @@
         "deterministic": true
     },
     "training": {
+        "n_iters": 75000,
+        "batch_size": 32,
+        "validation_interval": 1000,
+        "nsteps_accumulation_gradient": 2,
         "use_checkpoint": false,
-        "pretrained": null,
+        "pretrained": "/path/to/unidepthv2_vitl14_pretrained.bin",
         "resume_checkpoint": null,
-        "f16": true,
-        "wd": 0.1,
-        "ld": 1.0,
         "lr": 0.0001,
+        "lr_final": 0.000001,
+        "lr_warmup": 1.0,
+        "cycle_beta": false,
+        "find_unused_parameters": true,
+        "wd": 0.1,
+        "wd_final": 0.1,
+        "warmup_iters": 18750,
+        "ld": 1.0,
         "drop_path": 0.0,
-        "find_unused_parameters": false,
+        "ema": true,
+        "f16": true,
+        "clipping": 1.0,
+        "enable_mse_loss": true,
+        "mse_loss_weight": 1.0,
         "losses": {
             "depth": {
                 "name": "SILog",
@@ -58,21 +71,32 @@
     "data": {
         "image_shape": [480, 640],
         "normalization": "imagenet",
-        "num_copies": 1,
+        "num_copies": 2,
         "num_frames": 1,
+        "sampling": {
+            "NYUv2Depth": 1.0
+        },
+        "train_datasets": [
+            "NYUv2Depth"
+        ],
+        "val_datasets": [
+            "NYUv2Depth"
+        ],
+        "nyuv2depth_manifest_path": "/path/to/nyuv2/train/manifest_nyuv2.jsonl",
+        "nyuv2depth_val_manifest_path": "/path/to/nyuv2/test/manifest_nyuv2.jsonl",
         "defocus_stack_indices": [0, 1, 2],
         "data_root": "datasets",
         "crop": "garg",
         "augmentations": {
-            "random_scale": 1.0,
-            "random_jitter": 0.0,
-            "jitter_p": 0.0,
-            "random_blur": 0.0,
-            "blur_p": 0.0,
-            "random_gamma": 0.0,
-            "gamma_p": 0.0,
-            "grayscale_p": 0.0,
-            "flip_p": 0.0,
+            "random_scale": 2.0,
+            "random_jitter": 0.4,
+            "jitter_p": 0.8,
+            "random_blur": 2.0,
+            "blur_p": 0.2,
+            "random_gamma": 0.2,
+            "gamma_p": 0.8,
+            "grayscale_p": 0.2,
+            "flip_p": 0.5,
             "test_context": 1.0,
             "shape_constraints": {
                 "ratio_bounds": [0.5, 2.5],
@@ -81,7 +105,7 @@
                 "height_min": 15,
                 "width_min": 15,
                 "shape_mult": 14,
-                "sample": false
+                "sample": true
             }
         }
     },
@@ -106,7 +130,7 @@
             "num_register_tokens": 0,
             "use_norm": true,
             "freeze_norm": true,
-            "pretrained": null,
+            "pretrained": "/path/to/unidepthv2_vitl14_pretrained.bin",
             "stacking_fn": "last",
             "output_idx": [6, 12, 18, 24],
             "fusion_layers": [0, 1, 2, 3],

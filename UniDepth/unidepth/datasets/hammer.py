@@ -38,7 +38,6 @@ class HAMMER(ImageDataset):
         manifest_path: str | None = None,
         manifest_split_path: str | None = None,
         defocus_stack_indices=None,
-        debug_augmentation: bool = False,
         **kwargs,
     ):
         augmentations_db = augmentations_db or {}
@@ -48,11 +47,9 @@ class HAMMER(ImageDataset):
         defocus_stack_indices = (
             defocus_stack_indices if defocus_stack_indices is not None else kwargs.pop("defocus_stack_indices", None)
         )
-        debug_augmentation = debug_augmentation or kwargs.pop("debug_augmentation", False)
 
         self.manifest_path = manifest_path or os.environ.get("HAMMER_MANIFEST_PATH")
         self.manifest_split_path = manifest_split_path
-        self.debug_augmentation = bool(debug_augmentation)
 
         if defocus_stack_indices is not None:
             if isinstance(defocus_stack_indices, (str, bytes)):
@@ -413,26 +410,10 @@ class HAMMER(ImageDataset):
         seq["camera"] = camera
         seq["cam2w"] = torch.eye(4, dtype=K.dtype).unsqueeze(0)
 
-        if self.debug_augmentation and "defocus_stack" in seq:
-            print(
-                f"[HAMMER] Input image shape: {seq['image'].shape}, "
-                f"defocus stack: {seq['defocus_stack'].shape}"
-            )
-
         results = self.preprocess(results)
         if not self.test_mode:
             results = self.augment(results)
         results = self.postprocess(results)
-
-        if self.debug_augmentation:
-            seq0 = results.get("seq0", {})
-            if isinstance(seq0, dict):
-                image_shape = seq0.get("image", torch.empty(0)).shape
-                stack_shape = seq0.get("defocus_stack", torch.empty(0)).shape
-                print(
-                    f"[HAMMER] Output image shape: {image_shape}, "
-                    f"defocus stack: {stack_shape}"
-                )
 
         return results
 

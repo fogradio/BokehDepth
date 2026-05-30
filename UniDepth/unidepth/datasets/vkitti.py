@@ -43,9 +43,6 @@ class VKITTI(SequenceDataset):
         if self.defocus_stack_indices is not None:
             self.defocus_stack_indices = [int(i) for i in self.defocus_stack_indices]
 
-        # store the debug flag
-        self.debug_augmentation = kwargs.pop("debug_augmentation", False)
-
         self.manifest_path = manifest_path or os.environ.get("VKITTI_MANIFEST_PATH")
         self._use_manifest = False
 
@@ -345,69 +342,14 @@ class VKITTI(SequenceDataset):
 
         seq["metadata"] = metadata
 
-        # === Debug: before preprocessing ===
-        debug_augmentation = getattr(self, "debug_augmentation", False)
-        if debug_augmentation and "defocus_stack" in seq:
-            print("=== Before Preprocess ===")
-            print(f"image shape: {seq['image'].shape}")
-            print(f"defocus_stack shape: {seq['defocus_stack'].shape}")
-            print(f"image_fields: {seq['image_fields']}")
-
-        # Use ImageDataset's preprocess/postprocess methods.
+        # Use ImageDataset preprocessing and postprocessing.
         from unidepth.datasets.image_dataset import ImageDataset
         results = ImageDataset.preprocess(self, results)
-
-        # === Debug: before augmentation ===
-        if debug_augmentation and "defocus_stack" in results:
-            print("\n=== After Preprocess, Before Augment ===")
-            for seq_item in results.values():
-                if isinstance(seq_item, dict):
-                    print(f"image shape: {seq_item.get('image', torch.empty(0)).shape}")
-                    if 'defocus_stack' in seq_item:
-                        print(f"defocus_stack shape: {seq_item['defocus_stack'].shape}")
-                    print(f"scale_factor: {seq_item.get('scale_factor', 'N/A')}")
-                    print(f"paddings: {seq_item.get('paddings', 'N/A')}")
 
         if not self.test_mode:
             results = self.augment(results)
 
-        # === Debug: after augmentation ===
-        if debug_augmentation:
-            print("\n=== After Augment ===")
-            # Note: augment() works on the top-level sequence dict of results, not the nested seq_item.
-            # We have to walk sequence_fields to find the actual sequence key.
-            for seq_key in results.get("sequence_fields", []):
-                if seq_key in results and isinstance(results[seq_key], dict):
-                    seq_item = results[seq_key]
-                    print(f"\nSequence {seq_key}:")
-                    print(f"  image shape: {seq_item.get('image', torch.empty(0)).shape}")
-                    if 'defocus_stack' in seq_item:
-                        print(f"  defocus_stack shape: {seq_item['defocus_stack'].shape}")
-                    print(f"  flip: {seq_item.get('flip', 'N/A')}")
-                    print(f"  flip_direction: {seq_item.get('flip_direction', 'N/A')}")
-                    print(f"  scale_factor: {seq_item.get('scale_factor', 'N/A')}")
-                    print(f"  paddings: {seq_item.get('paddings', 'N/A')}")
-                    print(f"  resized_shape: {seq_item.get('resized_shape', 'N/A')}")
-                    print(f"  image_ori_shape: {seq_item.get('image_ori_shape', 'N/A')}")
-
         results = ImageDataset.postprocess(self, results)
-
-        # === Debug: final geometric-consistency check ===
-        if debug_augmentation and "defocus_stack" in results.get("seq0", {}):
-            from unidepth.datasets.debug_utils import verify_geometric_consistency, print_consistency_summary
-
-            # Verify with the first sequence.
-            seq_to_verify = results.get("seq0", {})
-
-            # Run the geometric-consistency check.
-            consistency_results = verify_geometric_consistency(
-                seq_to_verify,
-                save_dir=None,  # do not save images at data-loading time (avoid I/O overhead)
-                step=idx,
-            )
-
-            # Print a summary of the check.
-            print_consistency_summary(consistency_results, prefix="  ")
 
         return results
 

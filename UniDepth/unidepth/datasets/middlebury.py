@@ -52,7 +52,6 @@ class Middlebury2014(ImageDataset):
         manifest_path = kwargs.pop("manifest_path", None)
         manifest_split_path = kwargs.pop("manifest_split_path", None)
         defocus_stack_indices = kwargs.pop("defocus_stack_indices", None)
-        debug_augmentation = kwargs.pop("debug_augmentation", False)
 
         self.manifest_path = manifest_path or os.environ.get("MIDDLEBURY_MANIFEST_PATH")
         self.manifest_split_path = manifest_split_path
@@ -64,7 +63,6 @@ class Middlebury2014(ImageDataset):
         else:
             self.defocus_stack_indices = None
 
-        self.debug_augmentation = bool(debug_augmentation)
         self._use_manifest = False
         self._manifest_split_whitelist: Optional[set[str]] = None
         self._intrinsics_cache: Dict[str, Tuple[torch.Tensor, float]] = {}
@@ -366,26 +364,10 @@ class Middlebury2014(ImageDataset):
         seq["camera"] = camera
         seq["cam2w"] = torch.eye(4, dtype=K.dtype).unsqueeze(0)
 
-        if self.debug_augmentation and "defocus_stack" in seq:
-            print(
-                f"[Middlebury2014] Input image shape: {seq['image'].shape}, "
-                f"defocus stack: {seq['defocus_stack'].shape}"
-            )
-
         results = self.preprocess(results)
         if not self.test_mode:
             results = self.augment(results)
         results = self.postprocess(results)
-
-        if self.debug_augmentation and "seq0" in results:
-            seq0 = results.get("seq0", {})
-            if isinstance(seq0, dict):
-                image_shape = seq0.get("image", torch.empty(0)).shape
-                stack_shape = seq0.get("defocus_stack", torch.empty(0)).shape
-                print(
-                    f"[Middlebury2014] Output image shape: {image_shape}, "
-                    f"defocus stack: {stack_shape}"
-                )
 
         return results
 

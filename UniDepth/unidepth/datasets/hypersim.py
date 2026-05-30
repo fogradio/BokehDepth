@@ -43,7 +43,6 @@ class HyperSim(ImageDataset):
         if self.defocus_stack_indices is not None:
             self.defocus_stack_indices = [int(i) for i in self.defocus_stack_indices]
 
-        self.debug_augmentation = kwargs.pop("debug_augmentation", False)
         manifest_paths_arg = kwargs.pop("manifest_paths", None)
         if manifest_paths_arg is not None and not isinstance(
             manifest_paths_arg, (list, tuple)

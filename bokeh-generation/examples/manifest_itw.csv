@@ -1,0 +1,3 @@
+photo_id,input_image_path,depth_map_path,fg_mask_path,captions,N,fmm,f35mm,s1,image_width,image_height,task_type,suitable_for_synthetic
+20240615123456,/abs/path/to/itw/images/img_001.jpg,/abs/path/to/itw/depth-maps/img_001.npz,/abs/path/to/itw/fg-masks/img_001.png,a portrait of a person in the park|outdoor portrait,1.8,50,50,2.5,1024,768,add_bokeh,true
+20240615123457,/abs/path/to/itw/images/img_002.jpg,/abs/path/to/itw/depth-maps/img_002.npz,,a cat sitting on a fence,5.6,35,52,4.0,1280,720,add_bokeh,true

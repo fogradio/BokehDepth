@@ -49,7 +49,6 @@ class IBims(ImageDataset):
         manifest_path = kwargs.pop("manifest_path", None) or os.environ.get("IBIMS_MANIFEST_PATH")
         manifest_split_path = kwargs.pop("manifest_split_path", None)
         defocus_stack_indices = kwargs.pop("defocus_stack_indices", None)
-        debug_augmentation = kwargs.pop("debug_augmentation", False)
         data_root = kwargs.pop("data_root", None)
 
         if defocus_stack_indices is not None:
@@ -62,7 +61,6 @@ class IBims(ImageDataset):
 
         self.manifest_path = manifest_path
         self.manifest_split_path = manifest_split_path
-        self.debug_augmentation = bool(debug_augmentation)
         self._use_manifest = False
         self._manifest_split_whitelist: Optional[set[str]] = None
         self._intrinsics_cache: Dict[str, torch.Tensor] = {}
@@ -424,22 +422,10 @@ class IBims(ImageDataset):
         seq["camera"] = camera
         seq["cam2w"] = torch.eye(4, dtype=K.dtype).unsqueeze(0)
 
-        if self.debug_augmentation and "defocus_stack" in seq:
-            print(
-                f"[IBIMS] Input image {seq['image'].shape}, defocus stack {seq['defocus_stack'].shape}"
-            )
-
         results = self.preprocess(results)
         if not self.test_mode:
             results = self.augment(results)
         results = self.postprocess(results)
-
-        if self.debug_augmentation:
-            seq0 = results.get("seq0", {})
-            if isinstance(seq0, dict):
-                image_shape = seq0.get("image", torch.empty(0)).shape
-                stack_shape = seq0.get("defocus_stack", torch.empty(0)).shape
-                print(f"[IBIMS] Output image {image_shape}, defocus stack {stack_shape}")
 
         return results
 

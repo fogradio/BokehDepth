@@ -1,0 +1,4 @@
+photo_id,input_image_path,target_image_path,depth_map_path,fg_mask_path,captions,dof_cond,N,fmm,f35mm,s1,image_width,image_height,task_type,foreground_clear,suitable_for_synthetic
+i2i_via_exif_0001,/abs/path/to/paired/sharp/0001.jpg,/abs/path/to/paired/bokeh/0001.jpg,,,Increase bokeh to match f/2.0,,2.0,50,50,1.8,1920,1080,add_bokeh,true,false
+i2i_via_exif_0002,/abs/path/to/paired/sharp/0002.jpg,/abs/path/to/paired/bokeh/0002.jpg,,,Apply portrait bokeh,,2.8,85,85,3.2,1920,1080,add_bokeh,true,false
+i2i_dof_cond_direct,/abs/path/to/paired/sharp/0003.jpg,/abs/path/to/paired/bokeh/0003.jpg,,,Match dof_cond = 12.5,12.5,,,,,,,add_bokeh,true,false

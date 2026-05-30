@@ -65,7 +65,6 @@ class NYUv2Depth(ImageDataset):
         if self.defocus_stack_indices is not None:
             self.defocus_stack_indices = [int(i) for i in self.defocus_stack_indices]
 
-        self.debug_augmentation = kwargs.pop("debug_augmentation", False)
         self.manifest_path = manifest_path or os.environ.get("NYUV2_MANIFEST_PATH")
         self._use_manifest = False
         self.manifest_depth_mode = manifest_depth_mode
@@ -91,7 +90,7 @@ class NYUv2Depth(ImageDataset):
         self.load_dataset()
 
     def _debug(self, *args, **kwargs):
-        if self.debug_augmentation or DEBUG_LOG_ENABLED:
+        if DEBUG_LOG_ENABLED:
             print(*args, **kwargs)
 
     def load_dataset(self):
@@ -377,14 +376,14 @@ class NYUv2Depth(ImageDataset):
         seq["camera"] = camera
         seq["cam2w"] = torch.eye(4, dtype=K.dtype).unsqueeze(0)
 
-        if (self.debug_augmentation or DEBUG_LOG_ENABLED) and "defocus_stack" in seq:
+        if DEBUG_LOG_ENABLED and "defocus_stack" in seq:
             self._debug("=== NYUv2 Before Preprocess ===")
             self._debug(f"image shape: {seq['image'].shape}")
             self._debug(f"defocus stack shape: {seq['defocus_stack'].shape}")
 
         results = self.preprocess(results)
 
-        if (self.debug_augmentation or DEBUG_LOG_ENABLED) and "defocus_stack" in results:
+        if DEBUG_LOG_ENABLED and "defocus_stack" in results:
             self._debug("=== NYUv2 After Preprocess ===")
             for seq_key in results.get("sequence_fields", []):
                 seq_item = results.get(seq_key, {})
@@ -398,7 +397,7 @@ class NYUv2Depth(ImageDataset):
 
         results = self.postprocess(results)
 
-        if (self.debug_augmentation or DEBUG_LOG_ENABLED) and "seq0" in results:
+        if DEBUG_LOG_ENABLED and "seq0" in results:
             self._debug("=== NYUv2 Manifest Postprocess Summary ===")
             seq0 = results.get("seq0", {})
             self._debug(f"  image shape: {seq0.get('image', torch.empty(0)).shape}")

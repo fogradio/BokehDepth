@@ -49,7 +49,6 @@ class Make3D(ImageDataset):
         manifest_path = kwargs.pop("manifest_path", None) or os.environ.get("MAKE3D_MANIFEST_PATH")
         manifest_split_path = kwargs.pop("manifest_split_path", None)
         defocus_stack_indices = kwargs.pop("defocus_stack_indices", None)
-        debug_augmentation = kwargs.pop("debug_augmentation", False)
         evaluation_mode = kwargs.pop("evaluation_mode", "c1")
         depth_channel = int(kwargs.pop("depth_channel", 3))
         max_depth_clip = float(kwargs.pop("max_depth_clip", self.c2_max_depth))
@@ -65,7 +64,6 @@ class Make3D(ImageDataset):
 
         self.manifest_path = manifest_path
         self.manifest_split_path = manifest_split_path
-        self.debug_augmentation = bool(debug_augmentation)
         self.depth_channel = int(depth_channel)
         self.max_depth_clip = float(max_depth_clip)
         self.eval_protocol = str(evaluation_mode).lower()
@@ -366,24 +364,10 @@ class Make3D(ImageDataset):
         seq["camera"] = camera
         seq["cam2w"] = torch.eye(4, dtype=K.dtype).unsqueeze(0)
 
-        if self.debug_augmentation and "defocus_stack" in seq:
-            print(
-                f"[Make3D] Input image {image_tensor.shape}, defocus stack {seq['defocus_stack'].shape}"
-            )
-
         results = self.preprocess(results)
         if not self.test_mode:
             results = self.augment(results)
         results = self.postprocess(results)
-
-        if self.debug_augmentation:
-            seq0 = results.get("seq0", {})
-            if isinstance(seq0, dict):
-                image_shape = seq0.get("image", torch.empty(0)).shape
-                stack_shape = seq0.get("defocus_stack", torch.empty(0)).shape
-                print(
-                    f"[Make3D] Output image {image_shape}, defocus stack {stack_shape}"
-                )
 
         return results
 
