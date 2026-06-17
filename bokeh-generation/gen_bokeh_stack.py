@@ -197,8 +197,12 @@ def parse_args():
     parser.add_argument("--unfreeze_q", action="store_true", default=True)
     parser.add_argument("--unfreeze_k", action="store_true", default=True)
 
-    parser.add_argument('--dataset', type=str, choices=['vkitti2', 'kitti_test', 'kitti_train', 'nyuv2', 'eth3d', 'hypersim', 'make3d_kaggle', 'make3d_official', 'opensun3d', 'middlebury2014', 'ibims1', 'hammer', 'bokeh_failure', 'sintel', 'sintel_final'], default='vkitti2',
-                        help='Dataset to process: vkitti2, kitti_test, kitti_train, nyuv2, eth3d, hypersim, make3d_kaggle, make3d_official, opensun3d, middlebury2014, ibims1, hammer, bokeh_failure, sintel or sintel_final')
+    parser.add_argument('--dataset', type=str, choices=['vkitti2', 'kitti_test', 'kitti_train', 'nyuv2', 'eth3d', 'hypersim', 'make3d_kaggle', 'make3d_official', 'opensun3d', 'middlebury2014', 'ibims1', 'hammer', 'depth_sample', 'sintel', 'sintel_final', 'single'], default='vkitti2',
+                        help='Dataset to process: vkitti2, kitti_test, kitti_train, nyuv2, eth3d, hypersim, make3d_kaggle, make3d_official, opensun3d, middlebury2014, ibims1, hammer, depth_sample, sintel, sintel_final or single (one RGB image)')
+    parser.add_argument('--rgb_path', type=str, default=None,
+                        help='Single RGB image path (only used when --dataset single)')
+    parser.add_argument('--k', type=float, default=None,
+                        help='Single bokeh strength K (only used when --dataset single); overrides --k_min/--k_max/--k_step')
     # Dataset paths (reusing the KITTI2 layout)
     parser.add_argument('--rgb_root', type=str, default='/mnt/slurm_home/hwzhang/Depth_Dataset/Virtual_KITTI_2/rgb')
     parser.add_argument('--depth_root', type=str, default='/mnt/slurm_home/hwzhang/Depth_Dataset/Virtual_KITTI_2/depth')
@@ -261,12 +265,12 @@ def parse_args():
                         default='depth_l515',
                         choices=['depth_l515', 'depth_d435', 'depth_tof'],
                         help='HAMMER depth modality (depth_l515/depth_d435/depth_tof, only used when --dataset hammer)')
-    parser.add_argument('--bokeh_failure_manifest', type=str,
-                        default='/mnt/slurm_home/hwzhang/BokehDepth/bokeh-generation/dataset/bokeh_failure_depthpro/bokeh_failure_top1200_depthpro.jsonl',
-                        help='bokeh_failure dataset manifest (JSONL)')
-    parser.add_argument('--bokeh_failure_root', type=str,
-                        default='/mnt/slurm_home/hwzhang/BokehDepth/bokeh-generation/dataset/bokeh_failure_depthpro',
-                        help='bokeh_failure dataset root')
+    parser.add_argument('--depth_sample_manifest', type=str,
+                        default='/mnt/slurm_home/hwzhang/BokehDepth/bokeh-generation/dataset/depth_sample_depthpro/depth_sample_top1200_depthpro.jsonl',
+                        help='depth_sample dataset manifest (JSONL)')
+    parser.add_argument('--depth_sample_root', type=str,
+                        default='/mnt/slurm_home/hwzhang/BokehDepth/bokeh-generation/dataset/depth_sample_depthpro',
+                        help='depth_sample dataset root')
 
     # Image size and defocus-stack configuration
     parser.add_argument('--assigned_size', type=int, default=None, help='Fixed evaluation size; None means use a VAE-aligned adaptive size')
@@ -342,8 +346,8 @@ def parse_args():
         args.output_root = os.path.join(args.ibims1_root, 'bokeh_diffusion_defocus_stack')
     elif args.dataset == 'hammer' and args.output_root == default_output_root:
         args.output_root = os.path.join(args.hammer_root, 'bokeh_diffusion_defocus_stack')
-    elif args.dataset == 'bokeh_failure' and args.output_root == default_output_root:
-        args.output_root = args.bokeh_failure_root
+    elif args.dataset == 'depth_sample' and args.output_root == default_output_root:
+        args.output_root = args.depth_sample_root
     elif args.dataset in {'sintel', 'sintel_final'} and args.output_root == default_output_root:
         # Accept sintel_root pointing at either SintelDepth or SintelDepth/training.
         tr_root = args.sintel_root
@@ -351,6 +355,15 @@ def parse_args():
             tr_root = os.path.join(tr_root, 'training')
         variant_suffix = 'clean' if args.dataset == 'sintel' else 'final'
         args.output_root = os.path.join(tr_root, f'bokeh_depth_defocus_stack_{variant_suffix}')
+    elif args.dataset == 'single':
+        if not args.rgb_path:
+            parser.error('--rgb_path is required when --dataset single')
+        if args.k is not None:
+            args.k_min = float(args.k)
+            args.k_max = float(args.k)
+            args.k_step = 1.0
+        if args.output_root == default_output_root:
+            args.output_root = os.path.abspath('./bokeh_output')
     return args
 
 
@@ -999,12 +1012,12 @@ def list_hammer_images(hammer_root: str, depth_type: str) -> List[Tuple[str, str
     return items
 
 
-def load_bokeh_failure_manifest(manifest_path: str, dataset_root: str) -> List[Dict[str, Any]]:
-    """Read the JSONL manifest of the bokeh_failure dataset."""
+def load_depth_sample_manifest(manifest_path: str, dataset_root: str) -> List[Dict[str, Any]]:
+    """Read the JSONL manifest of the depth_sample dataset."""
     items: List[Dict[str, Any]] = []
 
     if not os.path.isfile(manifest_path):
-        print(f'[WARN] bokeh_failure manifest not found: {manifest_path}')
+        print(f'[WARN] depth_sample manifest not found: {manifest_path}')
         return items
 
     dataset_root_abs = os.path.abspath(dataset_root)
@@ -1017,12 +1030,12 @@ def load_bokeh_failure_manifest(manifest_path: str, dataset_root: str) -> List[D
             try:
                 record = json.loads(raw)
             except json.JSONDecodeError as exc:
-                print(f'[WARN] failed to parse bokeh_failure manifest (line {line_idx}): {exc}')
+                print(f'[WARN] failed to parse depth_sample manifest (line {line_idx}): {exc}')
                 continue
 
             sample_dir_raw = record.get('sample_dir') or record.get('source_sample_dir')
             if not sample_dir_raw:
-                print(f'[WARN] bokeh_failure manifest missing sample_dir (line {line_idx}), skipping')
+                print(f'[WARN] depth_sample manifest missing sample_dir (line {line_idx}), skipping')
                 continue
 
             sample_dir_abs = os.path.abspath(sample_dir_raw)
@@ -1040,9 +1053,8 @@ def load_bokeh_failure_manifest(manifest_path: str, dataset_root: str) -> List[D
                 candidate_depth = os.path.join(sample_dir_abs, 'depth.npy')
                 if os.path.exists(candidate_depth):
                     depth_path = candidate_depth
-            if not depth_path or not os.path.exists(depth_path):
-                print(f'[WARN] depth file not found (line {line_idx}): {depth_path}')
-                continue
+            if depth_path and not os.path.exists(depth_path):
+                depth_path = None
 
             original_depth_path = record.get('original_depth_path')
             similarity_score = record.get('similarity_score')
@@ -1574,7 +1586,7 @@ def _manifest_filename_for_dataset(dataset: str) -> str:
         'middlebury2014': 'manifest_bokeh_diffusion_middlebury2014.jsonl',
         'ibims1': 'manifest_bokeh_diffusion_ibims1.jsonl',
         'hammer': 'manifest_bokeh_diffusion_hammer.jsonl',
-        'bokeh_failure': 'manifest_bokeh_diffusion_bokeh_failure.jsonl',
+        'depth_sample': 'manifest_bokeh_diffusion_depth_sample.jsonl',
         'sintel': 'manifest_bokeh_diffusion_sintel.jsonl',
         'sintel_final': 'manifest_bokeh_diffusion_sintel_final.jsonl',
     }
@@ -1653,7 +1665,7 @@ def _extract_metadata_from_relpath(dataset: str, rel_path: str) -> Dict[str, Any
             info['sensor'] = parts[1]
         if parts:
             info['frame'] = parts[-1]
-    elif dataset == 'bokeh_failure':
+    elif dataset == 'depth_sample':
         info['rel_path'] = rel_path.replace(os.sep, '/')
     elif dataset in {'sintel', 'sintel_final'}:
         if len(parts) >= 1:
@@ -2106,10 +2118,18 @@ def main():
         if accelerator.is_main_process:
             variant = 'final' if args.dataset == 'sintel_final' else 'clean'
             print(f'Total frames found (Sintel Depth training, input={variant}): {len(items)}')
-    elif args.dataset == 'bokeh_failure':
-        items = load_bokeh_failure_manifest(args.bokeh_failure_manifest, args.bokeh_failure_root)
+    elif args.dataset == 'depth_sample':
+        items = load_depth_sample_manifest(args.depth_sample_manifest, args.depth_sample_root)
         if accelerator.is_main_process:
-            print(f'Total samples found (bokeh_failure manifest): {len(items)}')
+            print(f'Total samples found (depth_sample manifest): {len(items)}')
+    elif args.dataset == 'single':
+        if not os.path.exists(args.rgb_path):
+            if accelerator.is_main_process:
+                print(f'[ERROR] --rgb_path not found: {args.rgb_path}')
+            return
+        items = [args.rgb_path]
+        if accelerator.is_main_process:
+            print(f'Single-image mode: RGB={args.rgb_path}, output={args.output_root}')
     elif args.dataset == 'kitti_test':
         items = get_kitti_items_from_test_files(args.kitti_data_root, args.kitti_test_files)
         if accelerator.is_main_process:
@@ -2661,29 +2681,30 @@ def main():
                 extra_meta['scene'] = scene_name
                 extra_meta['sensor'] = sensor_key
                 extra_meta['depth_modality'] = depth_dir_name
-            elif args.dataset == 'bokeh_failure':
+            elif args.dataset == 'depth_sample':
                 sample_info = item
                 all_in_focus_path = sample_info['all_in_focus_path']
-                depth_path = sample_info['depth_path']
+                depth_path = sample_info.get('depth_path')
 
                 if not os.path.exists(all_in_focus_path):
                     if accelerator.is_main_process:
-                        print(f'[WARN] bokeh_failure all_in_focus not found: {all_in_focus_path}')
+                        print(f'[WARN] depth_sample all_in_focus not found: {all_in_focus_path}')
                     continue
-                if not os.path.exists(depth_path):
-                    if accelerator.is_main_process:
-                        print(f'[WARN] bokeh_failure depth not found: {depth_path}')
-                    continue
+                if depth_path and not os.path.exists(depth_path):
+                    depth_path = None
 
                 img = Image.open(all_in_focus_path).convert('RGB')
                 img_np = np.array(img).astype(np.float32) / 255.0
-                depth_np = load_depth_any(depth_path)
-                if depth_np.ndim == 3:
-                    depth_np = depth_np[..., 0]
+                depth_np = None
+                if depth_path is not None:
+                    depth_np = load_depth_any(depth_path)
+                    if depth_np.ndim == 3:
+                        depth_np = depth_np[..., 0]
 
                 if args.assigned_size is not None:
                     img_np = center_crop_to_size(img_np, args.assigned_size, args.assigned_size)
-                    depth_np = center_crop_to_size(depth_np, args.assigned_size, args.assigned_size)
+                    if depth_np is not None:
+                        depth_np = center_crop_to_size(depth_np, args.assigned_size, args.assigned_size)
 
                 rel_path = sample_info['rel_path']
                 sample_dir = os.path.join(args.output_root, rel_path)
@@ -2692,7 +2713,7 @@ def main():
                 if check_sample_complete(sample_dir, len(k_vals)):
                     skipped_count += 1
                     if accelerator.is_main_process and sample_idx % 50 == 0:
-                        print(f'[SKIP] process {accelerator.process_index} skipping completed sample {sample_idx + 1}/{len(process_items)}: bokeh_failure/{rel_path}')
+                        print(f'[SKIP] process {accelerator.process_index} skipping completed sample {sample_idx + 1}/{len(process_items)}: depth_sample/{rel_path}')
                     continue
 
                 stack_dir = os.path.join(sample_dir, 'defocus_stack')
@@ -2701,7 +2722,7 @@ def main():
 
                 source_rgb = all_in_focus_path
                 source_depth_ref = depth_path
-                sample_desc = f'bokeh_failure/{rel_path}'
+                sample_desc = f'depth_sample/{rel_path}'
 
                 original_depth = sample_info.get('original_depth_path')
                 if original_depth:
@@ -2709,7 +2730,7 @@ def main():
                 similarity = sample_info.get('similarity_score')
                 if similarity is not None:
                     try:
-                        extra_meta['bokeh_failure_similarity'] = float(similarity)
+                        extra_meta['depth_sample_similarity'] = float(similarity)
                     except (TypeError, ValueError):
                         pass
             elif args.dataset == 'kitti_train':
@@ -2824,6 +2845,19 @@ def main():
                 source_rgb = rgb_path
                 sample_desc = f'{sequence_path}#{frame_id:010d}'
                 source_mask_ref = None
+            elif args.dataset == 'single':
+                rgb_path = item
+                img = Image.open(rgb_path).convert('RGB')
+                img_np = np.array(img).astype(np.float32) / 255.0
+                if args.assigned_size is not None:
+                    img_np = center_crop_to_size(img_np, args.assigned_size, args.assigned_size)
+                depth_np = None
+                sample_dir = args.output_root
+                stack_dir = args.output_root
+                ensure_dir(stack_dir)
+                source_rgb = rgb_path
+                source_depth_ref = None
+                sample_desc = f'single/{os.path.basename(rgb_path)}'
             else:
                 if accelerator.is_main_process:
                     print(f'[WARN] unknown dataset: {args.dataset}, skip')
@@ -2864,9 +2898,16 @@ def main():
                 if idx >= len(generated_images):
                     break
                 generated_image = generated_images[idx]
-                img_name = f'{idx}.png'
+                img_name = f'bokeh_K{K:g}.png' if args.dataset == 'single' else f'{idx}.png'
                 generated_image.save(os.path.join(stack_dir, img_name))
                 defocus_meta[str(idx)] = float(K)
+
+            if args.dataset == 'single':
+                processed_count += 1
+                if accelerator.is_main_process:
+                    saved_names = [f'bokeh_K{K:g}.png' for K in k_vals[:len(generated_images)]]
+                    print(f'[INFO] saved {len(saved_names)} bokeh image(s) to {stack_dir}: {saved_names}')
+                continue
 
             meta_path = os.path.join(stack_dir, 'stack_index.json')
             actual_size = [stack_input_np.shape[1], stack_input_np.shape[0]]
@@ -2907,7 +2948,7 @@ def main():
     accelerator.wait_for_everyone()
 
     manifest_summary: Dict[str, Tuple[str, int]] = {}
-    if accelerator.is_main_process:
+    if accelerator.is_main_process and args.dataset != 'single':
         print('[INFO] generating JSONL manifest...')
         if args.dataset == 'nyuv2':
             manifest_summary = generate_nyuv2_manifests(args.output_root)
@@ -2926,7 +2967,7 @@ def main():
             print('manifest outputs:')
             for split_name, (path, count) in manifest_summary.items():
                 print(f'  - {split_name}: {path} ({count} samples)')
-        else:
+        elif args.dataset != 'single':
             print(f'[WARN] no {args.dataset} manifest produced, check the output directory.')
         print('Done.')
 

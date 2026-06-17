@@ -123,6 +123,41 @@ bash run_inference.sh
 
 Each run produces a timestamped directory under `OUTPUT_ROOT/` containing the Stage-1 defocus stack, the Stage-2 metric depth (`depth.npy` + `depth_color.png`), and a `pipeline_summary.json` recording every argument that was used.
 
+### Stage-1 only — bokeh generation from a single image
+
+If you only want the Stage-1 bokeh generator (no depth, no Stage-2), call `gen_bokeh_stack.py` directly with `--dataset single`. It takes one RGB image and one (or more) K values and writes the bokeh result(s) straight into `--output_root`. 
+
+Single K:
+
+```bash
+cd bokeh-generation
+python gen_bokeh_stack.py \
+  --dataset single \
+  --rgb_path /abs/path/to/input.png \
+  --k 15 \
+  --adapter_ckpt ../weights/bokeh_lora.bin \
+  --output_root ./bokeh_output
+```
+
+Output: `./bokeh_output/bokeh_K15.png`.
+
+Multiple K (defocus sweep) — drop `--k` and use `--k_min` / `--k_max` / `--k_step`:
+
+```bash
+python gen_bokeh_stack.py \
+  --dataset single \
+  --rgb_path /abs/path/to/input.png \
+  --k_min 5 --k_max 25 --k_step 5 \
+  --adapter_ckpt ../weights/bokeh_lora.bin \
+  --output_root ./bokeh_output
+```
+
+Output: `./bokeh_output/bokeh_K5.png`, `bokeh_K10.png`, …, `bokeh_K25.png`.
+
+Notes:
+- `--k` overrides `--k_min` / `--k_max` / `--k_step` when set.
+- Multi-GPU works with `accelerate launch --num_processes N gen_bokeh_stack.py …`, but with a single image there is nothing to parallelize — just run with `python`.
+
 ## Training
 
 We release the full training code for both stages and both Stage-2 DSFA variants. Stage-1 trains the bokeh-generation LoRA adapter on top of a frozen `FLUX.1-Kontext-dev`; Stage-2 trains DSFA depth fusion for UniDepthV2 and Depth Anything V2.
